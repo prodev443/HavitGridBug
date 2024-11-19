@@ -1,0 +1,83 @@
+﻿@page "/"
+@using HavitGridBug.Models.Data
+@using HavitGridBug.Data.Services
+@using HavitGridBug.Models.DTOFilters;
+
+@inject CustomerService DataService;
+@rendermode InteractiveServer
+
+<PageTitle>Home</PageTitle>
+
+<HxGrid @ref="Grid" TItem="Customer" DataProvider="GetGridData" PageSize="10" Responsive="true" InProgress="ProgressGridState">
+    <Columns>
+        <HxGridColumn HeaderText="Customer name" ItemTextSelector="@(m => m.Name)">
+            <HeaderTemplate>
+                <HxInputText @bind-Value="Filter.Name"
+                             BindEvent="BindEvent.OnInput"
+                             @bind-Value:after="RefreshGrid"
+                             Placeholder="Find customer"
+                             InputSize="InputSize.Small"
+                             Type="InputType.Search"
+                             aria-autocomplete="none" />
+            </HeaderTemplate>
+        </HxGridColumn>
+        <HxGridColumn HeaderText="Status" HeaderCssClass="text-center">
+            <HeaderTemplate>
+                <HxSelect TItem="CustomerStatus"
+                          TValue="bool?"
+                          Data="CustomerStatusList"
+                          @bind-Value="Filter.Status"
+                          @bind-Value:after="RefreshGrid"
+                          TextSelector="@(c => c.Label)"
+                          ValueSelector="@(c => c.IsActive)"
+                          Nullable="true"
+                          NullText="All" />
+            </HeaderTemplate>
+            <ItemTemplate Context="Customer">
+                @if (Customer.IsActive)
+                {
+                    <span>Active</span>
+                }
+                else
+                {
+                    <span>Inactive</span>
+                }
+            </ItemTemplate>
+        </HxGridColumn>
+    </Columns>
+</HxGrid>
+
+@code {
+    private HxGrid<Customer> Grid;
+
+    private CustomerFilter Filter = new();
+
+    private bool ProgressGridState = false;
+
+    private class CustomerStatus
+    {
+        public required string Label { get; set; }
+        public bool? IsActive { get; set; }
+    }
+
+    private List<CustomerStatus> CustomerStatusList = [
+        new CustomerStatus(){ Label = "Active", IsActive = true },
+        new CustomerStatus(){ Label = "Inactive", IsActive = false },
+    ];
+
+    private async Task<GridDataProviderResult<Customer>> GetGridData(GridDataProviderRequest<Customer> request)
+    {
+        return new GridDataProviderResult<Customer>()
+            {
+                Data = await DataService.ListAsync(Filter, request.StartIndex, request.CancellationToken, request.Count ?? 10),
+                TotalCount = await DataService.CountAsync(Filter, request.CancellationToken)
+            };
+    }
+
+    private async Task RefreshGrid()
+    {
+        ProgressGridState = true;
+        await Grid.RefreshDataAsync();
+        ProgressGridState = false;
+    }
+}
